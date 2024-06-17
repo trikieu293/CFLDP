@@ -82,33 +82,33 @@ def diff_function_25(utility, customer, c):
 
 
 def diff_function_24(utility, customer, c):
-    return get_omega_derivative(utility, customer) * (utility - c) + get_omega(c, customer)*2 - get_omega(utility,
-                                                                                                        customer)
+    return (get_omega_derivative(utility, customer) * (utility - c)
+            + get_omega(c, customer) - get_omega(utility,customer))
 
 
 def bisect24(low, high, customer, c):
     temp = high
     midpoint = (low + high) / 2.0
-    for i in range(54):
+    while (high - low)/2 >= 0.001:
         midpoint = (low + high) / 2.0
         if samesign(diff_function_24(low, customer, c), diff_function_24(midpoint, customer, c)):
             low = midpoint
         else:
             high = midpoint
-    if midpoint >= (1 - 0.01) * temp:
+    if midpoint >= (1 - 0.001) * temp:
         return temp
     return midpoint
 
 def bisect25(low, high, customer, c):
     temp = high
     midpoint = (low + high) / 2.0
-    for i in range(54):
+    while (high - low)/2 >= 0.001:
         midpoint = (low + high) / 2.0
         if samesign(diff_function_25(low, customer, c), diff_function_25(midpoint, customer, c)):
             low = midpoint
         else:
             high = midpoint
-    if midpoint >= (1 - 0.01) * temp:
+    if midpoint >= (1 - 0.001) * temp:
         return temp
     return midpoint
 
@@ -177,26 +177,26 @@ for customer in N_ind:
 
         # Step 2
         while get_l(phi_bar, customer, c) >= get_omega(phi_bar, customer) * (1 + ALPHA):
+            print("Calculate root" + " - Customer " + str(customer) + " - c = " + str(c))
             root = bisect25(c, phi_bar, customer, c)
             c_dict.update({(customer, l + 1): root})
             if root == phi_bar:
-                print("root = phibar")
+                print("root = phi_bar" + " - Customer" + str(customer))
                 l_dict.update({customer: l})
                 break
             else:
                 c = root
-                print(root)
-                print(phi_bar)
+                print("Root:    " + str(root))
+                print("Phi_bar: " + str(phi_bar))
                 # Step 3
                 l = l + 1
                 if get_omega(phi_bar, customer) >= (
                         get_omega_derivative(phi_bar, customer) * (phi_bar - c) + get_omega(c, customer)):  # Step 3b
-                    print("3b")
-                    print(l)
+                    print("3b" + " - " + str(l) + " - Customer" + str(customer))
                     c_t = bisect24(c, phi_bar, customer, c)
                     b_dict.update({(customer, l): get_omega_derivative(c_t, customer)})
                 else: # Step 3a
-                    print("3a")
+                    print("3a" + " - " + str(l) + " - Customer" + str(customer))
                     l_dict.update({customer: l})
                     c_dict.update({(customer, l): phi_bar})
                     if get_omega(c_dict.get((customer, l)), customer) * (1 + ALPHA) <= get_omega(phi_bar, customer):
@@ -206,7 +206,7 @@ for customer in N_ind:
                         b_dict.update({(customer, l): 0})
                         break
                 if c_t == phi_bar:
-                    print("c_t == phi_bar")
+                    print("c_t == phi_bar" + " - Customer" + str(customer))
                     c_dict.update({(customer, l + 1): c_t})
                     l_dict.update({customer: l})
                     break
@@ -215,7 +215,9 @@ for customer in N_ind:
             l_dict.update({customer: l})
             c_dict.update({(customer, l + 1): phi_bar})
 
+
     tla()
 
 print(l_dict)
 print(c_dict)
+print(b_dict)
