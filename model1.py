@@ -218,6 +218,11 @@ for customer in N_ind:
 
     tla()
 
+for cus in N_ind:
+    for l in range(1, l_dict.get(cus) + 1):
+        a_dict.update({(cus, l) : c_dict.get((cus, l + 1)) - c_dict.get((cus, l)) })
+
 print(l_dict)
 print(c_dict)
 print(b_dict)
+print(a_dict)
