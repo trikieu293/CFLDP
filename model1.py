@@ -1,9 +1,7 @@
 import time
-
 import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
-import numpy as np
 import random
 import math
 
@@ -20,7 +18,6 @@ NUMBER_OF_NEW_FACILITIES = NUMBER_OF_AVAILABLE_LOCATIONS // 2
 ALPHA = 0.05
 BETA = 1
 LAMBDA = 0.5
-UPSILON = 3
 ATTRACTIVENESS = 100
 
 ### Help functions
