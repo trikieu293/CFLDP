@@ -78,7 +78,10 @@ for c in C:
 
 ### Help functions
 def get_attractiveness(scenario):
-    return 1 + 1 * sum(R.get(scenario))
+    attractiveness = 1
+    for i in R.get(scenario):
+        attractiveness = attractiveness * ((1 + i) ** THETA)
+    return attractiveness
 
 def get_cost(scenario):
     return 1 + 0.5 * sum(R.get(scenario))
