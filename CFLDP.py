@@ -1,15 +1,16 @@
 import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
+import matplotlib.pyplot as plt
 import random
 import math
 import time
 from itertools import *
 
-random.seed(103093)
+random.seed(123)
 
 MAP_SIZE = 1000
-CUSTOMERS = 100
+CUSTOMERS = 40
 BUDGET = 20
 ATTRACTIVENESS_ATTRIBUTES = 2
 
@@ -69,7 +70,7 @@ for item in product:
 # creating dict of nodes' weight
 w = {}
 for i in N:
-    w.update({i: random.randint(5, 10)})
+    w.update({i: random.randint(1, 5)})
 # initiating attractiveness for competitive facilities
 C_attractiveness = {}
 for c in C:
@@ -161,6 +162,27 @@ def data_callback(model, where):
             model._gap = gap
             model._data.append([time.time() - model._start, cur_obj, cur_bd, gap])
 
+def plot_map():
+    fig, ax = plt.subplots()
+    customer_nodes = [node for node in N if node not in P]
+    for node in N:
+        x_temp, y_temp = locations.get(node)
+        if node in customer_nodes:
+            ax.scatter(x_temp, y_temp, s=3 ** w.get(node), c="gray", alpha=0.7)
+            ax.annotate(str(node), xy=(x_temp, y_temp), color="white", fontsize=w.get(node),
+                        horizontalalignment='center', verticalalignment='center')
+        if node in x_result["j"].unique():
+            ax.scatter(x_temp, y_temp, s=3 ** x_result.loc[x_result.j == node, "attractiveness"].values[0],
+                       c="forestgreen", alpha=0.7)
+            ax.annotate(str(node), xy=(x_temp, y_temp), color="white",
+                        fontsize=x_result.loc[x_result.j == node, "attractiveness"].values[0],
+                        horizontalalignment='center', verticalalignment='center')
+        if node in C:
+            ax.scatter(x_temp, y_temp, s=3 ** C_attractiveness.get(node), c="red", alpha=0.7)
+            ax.annotate(str(node), xy=(x_temp, y_temp), color="white", fontsize=C_attractiveness.get(node),
+                        horizontalalignment='center', verticalalignment='center')
+    plt.show()
+
 ### The TLA procedure
 l_dict = {}
 a_dict = {}
@@ -188,17 +210,12 @@ for customer in N:
                 break
             else:
                 c = root
-                # print("Root:    " + str(root))
-                # print("Phi_bar: " + str(phi_bar))
-                # Step 3
                 l = l + 1
                 if get_omega(phi_bar, customer) >= (
                         get_omega_derivative(phi_bar, customer) * (phi_bar - c) + get_omega(c, customer)):  # Step 3b
-                    # print("3b" + " - " + str(l) + " - Customer" + str(customer))
                     c_t = bisect(diff_function_24, c, phi_bar, customer, c)
                     b_dict.update({(customer, l): get_omega_derivative(c_t, customer)})
                 else: # Step 3a
-                    # print("3a" + " - " + str(l) + " - Customer" + str(customer))
                     l_dict.update({customer: l})
                     c_dict.update({(customer, l): phi_bar})
                     if get_omega(c_dict.get((customer, l)), customer) * (1 + ALPHA) <= get_omega(phi_bar, customer):
@@ -208,7 +225,6 @@ for customer in N:
                         b_dict.update({(customer, l): 0})
                         break
                 if c_t == phi_bar:
-                    # print("c_t == phi_bar" + " - Customer" + str(customer))
                     c_dict.update({(customer, l + 1): c_t})
                     l_dict.update({customer: l})
                     break
@@ -260,10 +276,15 @@ model.optimize()
 # model.computeIIS()
 # model.write("model.ilp")
 
-xResult = pd.DataFrame(x.keys(), columns=["j", "r"])
-xResult["value"] = model.getAttr("X", x).values()
-yResult = pd.DataFrame(y.keys(), columns=["i", "l"])
-yResult["value"] = model.getAttr("X", y).values()
+### checking result
+x_result = pd.DataFrame(x.keys(), columns=["j", "r"])
+x_result["value"] = model.getAttr("X", x).values()
+x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
+x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
-print(xResult)
-print(yResult)
+y_result = pd.DataFrame(y.keys(), columns=["i", "l"])
+y_result["value"] = model.getAttr("X", y).values()
+
+print(x_result)
+print(y_result)
+# plot_map()
