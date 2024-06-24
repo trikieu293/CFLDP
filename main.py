@@ -120,7 +120,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     def get_omega_derivative(utility, customer):
         if utility == 0:
             return 0
-        return (get_g_derivative(utility) * (1 - (get_u_c(customer) / utility))
+        return get_g_derivative(utility) * (1 - (get_u_c(customer) / utility)
                 + get_g(utility) * (get_u_c(customer) / (utility ** 2)))
 
     def get_l(utility, customer, point):
@@ -140,14 +140,14 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     def bisect(func, low, high, customer, c):
         temp = high
         midpoint = (low + high) / 2.0
-        while (high - low)/2 >= 0.001:
+        while (high - low)/2 >= 0.01:
             midpoint = (low + high) / 2.0
             if is_same_sign(func(low, customer, c), func(midpoint, customer, c)):
                 low = midpoint
             else:
                 high = midpoint
-        # if midpoint >= (1 - 0.0001) * temp:
-        #     return temp
+        if midpoint >= (1 - 0.0001) * temp:
+            return temp
         return midpoint
 
     def data_callback(model, where):
