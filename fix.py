@@ -215,8 +215,9 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     y = model.addVars([(i, l) for (i, l) in b_dict.keys()], vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name='y')
 
     # Objective Function
-    # model.setObjective(sum(sum(w[i] * a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
-    model.setObjective(sum(w[i] * sum(a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
+    model.setObjective(sum(sum(w[i] * a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
+    # model.setObjective(sum(w[i] * sum(a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
+
     # Constraints
     for i in N:
         model.addConstr(sum(get_utility(i, j, r) * x[j, r] for j in S for r in R.keys()) == sum(a_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)), name="Constraints 1")
@@ -224,7 +225,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 2")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= (AVAILABLE_LOCATIONS // 2) * get_cost(max(R.keys())), name="Constraints 3")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 7, name="Constraints 3")
 
     model.Params.TimeLimit = 60*60
     model.update()
@@ -237,17 +238,12 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
-    obj = 0.0
-    for index, row in x_result.iterrows():
-        for i in N:
-            print(get_omega(get_utility(i, row["j"], row["r"]), i))
-            obj += w[i] * get_omega(get_utility(i, row["j"], row["r"]), i)
     print(distances)
     y_result = pd.DataFrame(y.keys(), columns=["i", "l"])
     y_result["value"] = model.getAttr("X", y).values()
 
     # return [x_result, y_result, a_dict, b_dict, c_dict, l_dict]
-    return [x_result, obj]
+    return x_result
 def exact(n_customer, beta, lamda, theta):
     random.seed(123)
     MAP_SIZE = 1000
@@ -356,7 +352,7 @@ def exact(n_customer, beta, lamda, theta):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 1")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= (AVAILABLE_LOCATIONS // 2) * get_cost(max(R.keys())), name="Constraints 2")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 7, name="Constraints 2")
     for i in N:
         model.addConstr(u1[i] == get_u_c(i) + sum(x[j, r] * get_utility(i, j, r) for j in S for r in R.keys()), name="ConstrU1")
         model.addConstr(u1[i] * u2[i] == 1.0, name="ConstrU2")
@@ -366,7 +362,6 @@ def exact(n_customer, beta, lamda, theta):
 
     model.Params.TimeLimit = 60*60
     model.update()
-
     model.optimize()
 
     ### checking result
@@ -376,19 +371,124 @@ def exact(n_customer, beta, lamda, theta):
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
-    obj = 0.0
-    for index, row in x_result.iterrows():
-        for i in N:
-            print(get_omega(get_utility(i, row["j"], row["r"]), i))
-            obj += w[i] * get_omega(get_utility(i, row["j"], row["r"]), i)
-
-    print(distances)
-    print("Budget: " + str((AVAILABLE_LOCATIONS // 2) * get_cost(max(R.keys()))))
-    return [x_result, obj]
+    return x_result
 
 if __name__ == "__main__":
-    result_approximation = cfldp(50, 0.01, 1, 1, 1.1)
-    result_exact = exact(50, 1, 1, 1.1)
-    print(result_approximation)
-    print(result_exact)
-    print((result_approximation[1] - result_exact[1]) / result_exact[1])
+    def result(n_customer, alpha, beta, lamda, theta, result_approximation, result_exact):
+        random.seed(123)
+        MAP_SIZE = 1000
+        CUSTOMERS = n_customer
+        ATTRACTIVENESS_ATTRIBUTES = 2
+
+        POTENTIAL_LOCATION = CUSTOMERS // 3
+        EXISTING_COMPETITIVE_FACILITIES = POTENTIAL_LOCATION // 3
+        AVAILABLE_LOCATIONS = POTENTIAL_LOCATION - EXISTING_COMPETITIVE_FACILITIES
+
+        ALPHA = alpha  # approximation level
+        BETA = beta  # the distance sensitivity parameter
+        LAMBDA = lamda  # the elasticity parameter
+        THETA = theta  # sensitivity parameter of the utility function
+
+        N = [node for node in range(1, CUSTOMERS + 1)]  # index of customers
+        P = random.sample(N, POTENTIAL_LOCATION)  # index of potential locations
+        C = random.sample(P, EXISTING_COMPETITIVE_FACILITIES)  # index of competitive facility locations
+        S = [facility for facility in P if facility not in C]  # index of controlled facilities
+
+        locations = {}
+        for i in N:
+            x = random.randint(1, MAP_SIZE - 1)
+            y = random.randint(1, MAP_SIZE - 1)
+
+            while (x, y) in locations.values():
+                x = random.randint(1, MAP_SIZE - 1)
+                y = random.randint(1, MAP_SIZE - 1)
+            locations.update({i: (x, y)})
+
+        distances = {}
+        for i in N:
+            for j in N:
+                if i == j:
+                    distances.update({(i, j): 0.1})
+                else:
+                    x1, y1 = locations.get(i)
+                    x2, y2 = locations.get(j)
+                    distance = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+                    distances.update({(i, j): round(distance, 2)})
+
+        scenarios_attr = {}
+        for k in range(1, ATTRACTIVENESS_ATTRIBUTES + 1):
+            value = 2
+            scenarios_attr.update({k: [level for level in range(value)]})
+
+        product = itertools.product(*[k for k in scenarios_attr.values()])
+        R = {}
+        count = 1
+        for item in product:
+            R.update({count: list(item)})
+            count += 1
+
+        w = {}
+        for i in N:
+            w.update({i: random.randint(1, 5)})
+
+        c_attractiveness = {}
+        for c in C:
+            c_attractiveness.update({c: random.randint(3, 5)})
+
+        def get_attractiveness(scenario):
+            # return 1 + 1 * sum(R.get(scenario))
+            attractiveness = 1
+            for s in R.get(scenario):
+                attractiveness = attractiveness * ((1 + s) ** THETA)
+            return attractiveness
+
+        def get_cost(scenario):
+            return 1 + 1 * sum(R.get(scenario))
+
+        def get_utility(customer, facility, scenario):
+            return get_attractiveness(scenario) * (distances.get((customer, facility)) + 1) ** (-BETA)
+
+        def get_g(utility):
+            if utility == 0:
+                return 0
+            return 1 - math.exp(-LAMBDA * utility)
+
+        def get_u_c(customer):
+            utility_sum = 0
+            for c in C:
+                utility_sum += c_attractiveness.get(c) * (distances.get((customer, c)) + 1) ** (-BETA)
+            return utility_sum
+
+        def get_omega(utility, customer):
+            return get_g(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer))))
+
+        x_appr = result_approximation
+        x_exact = result_exact
+
+        obj_appr = 0.0
+        obj_exact = 0.0
+        for index, row in x_appr.iterrows():
+            for i in N:
+                # print(get_omega(get_utility(i, row["j"], row["r"]), i))
+                obj_appr += w[i] * get_omega(get_utility(i, row["j"], row["r"]), i)
+        for index, row in x_exact.iterrows():
+            for i in N:
+                # print(get_omega(get_utility(i, row["j"], row["r"]), i))
+                obj_exact += w[i] * get_omega(get_utility(i, row["j"], row["r"]), i)
+        print(S)
+        print(result_approximation)
+        print(result_exact)
+        print("Obj. Exact: " + str(obj_exact) + " -- " + "Obj. Appr: " + str(obj_appr))
+        print("Relative Error: " + str((obj_exact - obj_appr) / obj_exact) + "  vs. Alpha: " + str(alpha))
+        return  (obj_exact - obj_appr) / obj_exact
+
+    result_set = []
+    for i in range(30, 50):
+        alpha = 0.01
+        beta = 1
+        lamda = 1
+        theta = 0.8
+        result_approximation = cfldp(i, alpha, beta, lamda, theta)
+        result_exact = exact(i, beta, lamda, theta)
+        result_set.append(result(i, alpha, beta, lamda, theta, result_approximation, result_exact))
+    print(result_set)
