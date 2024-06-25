@@ -1,10 +1,8 @@
 import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
-import matplotlib.pyplot as plt
 import random
 import math
-import time
 import itertools
 
 def cfldp(n_customer, alpha, beta, lamda, theta):
@@ -49,8 +47,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
                 x1, y1 = locations.get(i)
                 x2, y2 = locations.get(j)
                 distance = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-                distances.update({(i, j): distance})
-    print("Distances: "+str(distances))
+                distances.update({(i, j): round(distance, 2)})
 
     # creating dict of scenarios
     scenarios_attr = {}
@@ -72,14 +69,14 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     # initiating attractiveness for competitive facilities
     c_attractiveness = {}
     for c in C:
-        c_attractiveness.update({c: random.randint(5, 10)})
+        c_attractiveness.update({c: random.randint(3, 5)})
 
     ### Help functions
     def get_attractiveness(scenario):
         # return 1 + 1 * sum(R.get(scenario))
         attractiveness = 1
-        for i in R.get(scenario):
-            attractiveness = attractiveness*((1 + i)**THETA)
+        for s in R.get(scenario):
+            attractiveness = attractiveness * ((1 + s) ** THETA)
         return attractiveness
     def get_cost(scenario):
         return 1 + 1 * sum(R.get(scenario))
@@ -110,58 +107,40 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
         return utility_sum
 
     def get_interval_limit(customer):
-        return get_u_c(customer) + get_max_u_s(customer)
+        return get_max_u_s(customer)
 
     def get_omega(utility, customer):
-        if utility == 0:
-            return 0
-        return get_g(utility) * (1 - (get_u_c(customer) / utility))
+        return get_g(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer))))
 
     def get_omega_derivative(utility, customer):
-        if utility == 0:
-            return 0
-        return get_g_derivative(utility) * (1 - (get_u_c(customer) / utility)
-                + get_g(utility) * (get_u_c(customer) / (utility ** 2)))
+        return get_g_derivative(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer)))
+                                                                + get_g(utility + get_u_c(customer)) * ((get_u_c(customer) / ((utility + get_u_c(customer)) ** 2))))
 
-    def get_l(utility, customer, point):
-        return get_omega(point, customer) + get_omega_derivative(point, customer) * (utility - point)
+    def get_l(utility, customer, c_t):
+        return get_omega(c_t, customer) + get_omega_derivative(c_t, customer) * (utility - c_t)
 
     def is_same_sign(a, b):
         return a * b > 0
 
     def diff_function_25(utility, customer, point):
-        return get_l(utility, customer, point) - get_omega(utility, customer) * (1 + ALPHA)
+        return get_l(utility, customer, point) - get_omega(utility, customer) * (1.0 + ALPHA)
 
 
-    def diff_function_24(utility, customer, point):
-        return (get_omega_derivative(utility, customer) * (utility - point)
-                + get_omega(point, customer) - get_omega(utility, customer) * (1 + ALPHA))
+    def diff_function_24(utility, customer, c):
+        return get_omega_derivative(utility, customer) * (utility - c) + get_omega(c, customer) - get_omega(utility, customer)
 
     def bisect(func, low, high, customer, c):
         temp = high
         midpoint = (low + high) / 2.0
-        while (high - low)/2 >= 0.001:
+        while (high - low)/2 >= 0.00000001:
             midpoint = (low + high) / 2.0
             if is_same_sign(func(low, customer, c), func(midpoint, customer, c)):
                 low = midpoint
             else:
                 high = midpoint
-        if midpoint >= (1 - 0.0001) * temp:
-            return temp
+        # if midpoint >= (1 - 0.0000000001) * temp:
+        #     return temp
         return midpoint
-
-    def data_callback(model, where):
-        if where == gp.GRB.Callback.MIP:
-            cur_obj = model.cbGet(gp.GRB.Callback.MIP_OBJBST)
-            cur_bd = model.cbGet(gp.GRB.Callback.MIP_OBJBND)
-            gap = (abs(cur_bd - cur_obj) / abs(cur_obj)) * 100
-
-            # Change in obj value or bound?
-            if model._obj != cur_obj or model._bd != cur_bd:
-                model._obj = cur_obj
-                model._bd = cur_bd
-                model._gap = gap
-                model._data.append([time.time() - model._start, cur_obj, cur_bd, gap])
 
     ### The TLA procedure
     l_dict = {}
@@ -172,51 +151,60 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
         def tla():
             # Step 1
             l = 1
-            c = get_u_c(customer)
-            c_t = get_u_c(customer)
-            b_dict.update({(customer, 1): get_omega_derivative(get_u_c(customer), customer)})
-
-            c_dict.update({(customer, l): get_u_c(customer)})
+            c = 0
+            c_dict.update({(customer, l): 0})
+            c_t = 0
+            b_dict.update({(customer, 1): get_omega_derivative(0, customer)})
             phi_bar = get_interval_limit(customer)
 
             # Step 2
-            while get_l(phi_bar, customer, c) >= get_omega(phi_bar, customer) * (1 + ALPHA):
-                # print("Calculate root" + " - Customer " + str(customer) + " - c = " + str(c))
-                root = bisect(diff_function_25, c, phi_bar, customer, c)
+            while get_l(phi_bar, customer, c_t) >= get_omega(phi_bar, customer) * (1.0 + ALPHA):
+                print("Customer " + str(customer) + " - Step 2")
+                root = bisect(diff_function_25, c, phi_bar, customer, c_t)
                 c_dict.update({(customer, l + 1): root})
-                if root == phi_bar:
-                    # print("root = phi_bar" + " - Customer" + str(customer))
+                if root == phi_bar: # Caution
+                    print("root = phi_bar" + " - Customer" + str(customer))
                     l_dict.update({customer: l})
                     break
                 else:
-                    c = root
+                    c = c_dict.get((customer, l + 1))
                     l = l + 1
-                    if get_omega(phi_bar, customer) >= (
-                            get_omega_derivative(phi_bar, customer) * (phi_bar - c) + get_omega(c, customer) * (1 + ALPHA)):  # Step 3b
+                    if get_omega(phi_bar, customer) >= (get_omega_derivative(phi_bar, customer) * (phi_bar - c) + get_omega(c, customer)):  # (23) hold -> Step 3b
                         c_t = bisect(diff_function_24, c, phi_bar, customer, c)
                         b_dict.update({(customer, l): get_omega_derivative(c_t, customer)})
-                    else: # Step 3a
+                        print("Customer " + str(customer) + " - Step 3b; c_t= " + str(c_t))
+                    else: # (23) not hold -> Step 3a
+                        print("Customer " + str(customer) + " - Step 3a; c_t= " + str(c_t))
                         l_dict.update({customer: l})
-                        c_dict.update({(customer, l): phi_bar})
-                        if get_omega(c_dict.get((customer, l)), customer) * (1 + ALPHA) <= get_omega(phi_bar, customer):
-                            value = (get_omega(phi_bar, customer) - get_omega(c_dict.get((customer, l)), customer) * (1 + ALPHA)) / (phi_bar - c)
+                        c_dict.update({(customer, l + 1): phi_bar}) # Check again
+                        if get_omega(c_dict.get((customer, l)), customer) * (1.0 + ALPHA) <= get_omega(phi_bar, customer):
+                            print("27 hold")
+                            value = (get_omega(phi_bar, customer) - get_omega(c, customer) * (1.0 + ALPHA)) / (phi_bar - c)
                             b_dict.update({(customer, l): value})
                         else:
                             b_dict.update({(customer, l): 0})
                             break
-                    if c_t == phi_bar:
+                    if c_t == phi_bar: # Step 4
+                        print("Customer " + str(customer) + " - c_t = phibar - Step 4:", str(c_t), " == ", str(phi_bar))
                         c_dict.update({(customer, l + 1): c_t})
                         l_dict.update({customer: l})
                         break
 
-            if get_l(phi_bar, customer, c) < get_omega(phi_bar, customer) * (1 + ALPHA):
-                l_dict.update({customer: l})
+            if get_l(phi_bar, customer, c_t) < get_omega(phi_bar, customer) * (1 + ALPHA):
+                print("Customer " + str(customer) + " - Condition 26 failed")
                 c_dict.update({(customer, l + 1): phi_bar})
+                l_dict.update({customer: l})
+
         tla()
 
-    for cus in N:
-        for l in range(1, l_dict.get(cus) + 1):
-            a_dict.update({(cus, l) : c_dict.get((cus, l + 1)) - c_dict.get((cus, l))})
+    for customer in N:
+        check = l_dict.get(customer)
+        for l in range(1, l_dict.get(customer) + 1):
+            a_dict.update({(customer, l): c_dict.get((customer, l + 1)) - c_dict.get((customer, l))})
+
+    print(l_dict)
+    print(c_dict)
+    print([(i, get_interval_limit(i)) for i in N])
 
     ### Model
     model = gp.Model()
@@ -227,8 +215,8 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     y = model.addVars([(i, l) for (i, l) in b_dict.keys()], vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name='y')
 
     # Objective Function
-    model.setObjective(sum(sum(w[i] * a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
-
+    # model.setObjective(sum(sum(w[i] * a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
+    model.setObjective(sum(w[i] * sum(a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
     # Constraints
     for i in N:
         model.addConstr(sum(get_utility(i, j, r) * x[j, r] for j in S for r in R.keys()) == sum(a_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)), name="Constraints 1")
@@ -238,28 +226,28 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
 
     model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= (AVAILABLE_LOCATIONS // 2) * get_cost(max(R.keys())), name="Constraints 3")
 
-    model._obj = None
-    model._bd = None
-    model._gap = None
-    model._data = []
-    model._start = time.time()
     model.Params.TimeLimit = 60*60
     model.update()
-
-    # model.optimize(callback=data_callback)
     model.optimize()
 
     ### checking result
     x_result = pd.DataFrame(x.keys(), columns=["j", "r"])
     x_result["value"] = model.getAttr("X", x).values()
+    x_result["cost"] = [get_cost(r) for r in x_result["r"]]
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
+    obj = 0.0
+    for index, row in x_result.iterrows():
+        for i in N:
+            print(get_omega(get_utility(i, row["j"], row["r"]), i))
+            obj += w[i] * get_omega(get_utility(i, row["j"], row["r"]), i)
+    print(distances)
     y_result = pd.DataFrame(y.keys(), columns=["i", "l"])
     y_result["value"] = model.getAttr("X", y).values()
 
-    return [x_result, y_result, a_dict, b_dict, c_dict, l_dict]
-
+    # return [x_result, y_result, a_dict, b_dict, c_dict, l_dict]
+    return [x_result, obj]
 def exact(n_customer, beta, lamda, theta):
     random.seed(123)
     MAP_SIZE = 1000
@@ -301,8 +289,7 @@ def exact(n_customer, beta, lamda, theta):
                 x1, y1 = locations.get(i)
                 x2, y2 = locations.get(j)
                 distance = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-                distances.update({(i, j): distance})
-    print("Distances: "+str(distances))
+                distances.update({(i, j): round(distance, 2)})
 
     # creating dict of scenarios
     scenarios_attr = {}
@@ -324,14 +311,14 @@ def exact(n_customer, beta, lamda, theta):
     # initiating attractiveness for competitive facilities
     c_attractiveness = {}
     for c in C:
-        c_attractiveness.update({c: random.randint(5, 10)})
+        c_attractiveness.update({c: random.randint(3, 5)})
 
     ### Help functions
     def get_attractiveness(scenario):
         # return 1 + 1 * sum(R.get(scenario))
-        attractiveness = 1.0
-        for i in R.get(scenario):
-            attractiveness = attractiveness*((1 + i)**THETA)
+        attractiveness = 1
+        for s in R.get(scenario):
+            attractiveness = attractiveness*((1 + s)**THETA)
         return attractiveness
     def get_cost(scenario):
         return 1 + 1 * sum(R.get(scenario))
@@ -344,6 +331,13 @@ def exact(n_customer, beta, lamda, theta):
         for c in C:
             utility_sum += c_attractiveness.get(c) * (distances.get((customer, c)) + 1) ** (-BETA)
         return utility_sum
+
+    def get_g(utility):
+        if utility == 0:
+            return 0
+        return 1 - math.exp(-LAMBDA * utility)
+    def get_omega(utility, customer):
+        return get_g(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer))))
 
     ### Model
     model = gp.Model()
@@ -366,7 +360,7 @@ def exact(n_customer, beta, lamda, theta):
     for i in N:
         model.addConstr(u1[i] == get_u_c(i) + sum(x[j, r] * get_utility(i, j, r) for j in S for r in R.keys()), name="ConstrU1")
         model.addConstr(u1[i] * u2[i] == 1.0, name="ConstrU2")
-        model.addConstr(u3[i] == 1 - get_u_c(i) * u2[i], name="ConstrU3")
+        model.addConstr(u3[i] == 1 - (get_u_c(i) * u2[i]), name="ConstrU3")
         e_lambda = math.exp(-LAMBDA)
         model.addGenConstrExpA(u3[i], u4[i], e_lambda, name="ConstrU4")
 
@@ -378,12 +372,23 @@ def exact(n_customer, beta, lamda, theta):
     ### checking result
     x_result = pd.DataFrame(x.keys(), columns=["j", "r"])
     x_result["value"] = model.getAttr("X", x).values()
+    x_result["cost"] = [get_cost(r) for r in x_result["r"]]
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
-    return [x_result]
+    obj = 0.0
+    for index, row in x_result.iterrows():
+        for i in N:
+            print(get_omega(get_utility(i, row["j"], row["r"]), i))
+            obj += w[i] * get_omega(get_utility(i, row["j"], row["r"]), i)
+
+    print(distances)
+    print("Budget: " + str((AVAILABLE_LOCATIONS // 2) * get_cost(max(R.keys()))))
+    return [x_result, obj]
 
 if __name__ == "__main__":
-    result_approximation = cfldp(40, 0.001, 1, 1, 1)
-    result_exact = exact(40, 1, 1, 1)
-    print(result_approximation, result_exact)
+    result_approximation = cfldp(50, 0.01, 1, 1, 1.1)
+    result_exact = exact(50, 1, 1, 1.1)
+    print(result_approximation)
+    print(result_exact)
+    print((result_approximation[1] - result_exact[1]) / result_exact[1])
