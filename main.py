@@ -503,4 +503,3 @@ if __name__ == "__main__":
         result_exact = exact(i, beta, lamda, theta)
         result_set.append(result(i, alpha, beta, lamda, theta, result_approximation, result_exact))
     print(result_set)
-    print("End")
