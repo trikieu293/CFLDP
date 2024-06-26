@@ -355,10 +355,10 @@ def exact(n_customer, beta, lamda, theta):
     u4 = model.addVars([i for i in N], vtype=GRB.CONTINUOUS, name='u4')
 
     for i in N:
-        u3[i].LB
+        u1[i].LB = get_u_c(i)
+        u1[i].UB = get_u_c(i) + get_max_u_s(i)
     # Objective Function
     model.setObjective(sum(w[i] * (1 - u4[i]) * u3[i] for i in N), GRB.MAXIMIZE)
-    # model.setObjective(sum(math.log(w[i]) + math.log(1 - u4[i]) + math.log(u3[i]) for i in N), GRB.MINIMIZE)
 
     # Constraints
     for j in S:
@@ -497,9 +497,9 @@ if __name__ == "__main__":
         return  (obj_exact - obj_appr) / obj_exact
 
     result_set = []
-    for i in range(40, 41):
-        alpha = 0.005
-        beta = 1
+    for i in range(50, 60):
+        alpha = 0.05
+        beta = 3
         lamda = 1
         theta = 1
         result_approximation = cfldp(i, alpha, beta, lamda, theta)
