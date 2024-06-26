@@ -112,8 +112,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
         return get_g(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer))))
 
     def get_omega_derivative(utility, customer):
-        return get_g_derivative(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer)))
-                                                                + get_g(utility + get_u_c(customer)) * ((get_u_c(customer) / ((utility + get_u_c(customer)) ** 2))))
+        return get_g_derivative(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer)))) + get_g(utility + get_u_c(customer)) * ((get_u_c(customer) / ((utility + get_u_c(customer)) ** 2)))
 
     def get_l(utility, customer, c_t):
         return get_omega(c_t, customer) + get_omega_derivative(c_t, customer) * (utility - c_t)
@@ -495,7 +494,7 @@ if __name__ == "__main__":
         return  (obj_exact - obj_appr) / obj_exact
 
     result_set = []
-    for i in range(50, 81, 2):
+    for i in range(100, 110):
         alpha = 0.05
         beta = 2
         lamda = 1
