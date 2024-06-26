@@ -330,6 +330,11 @@ def exact(n_customer, beta, lamda, theta):
         for c in C:
             utility_sum += c_attractiveness.get(c) * ((distances.get((customer, c)) + 1) ** (-BETA))
         return utility_sum
+    def get_max_u_s(customer):
+        utility_sum = 0
+        for e in S:
+            utility_sum += get_utility(customer, e, max(R.keys()))
+        return utility_sum
 
     def get_g(utility):
         if utility == 0:
@@ -348,8 +353,12 @@ def exact(n_customer, beta, lamda, theta):
     u2 = model.addVars([i for i in N], vtype=GRB.CONTINUOUS, name='u2')
     u3 = model.addVars([i for i in N], vtype=GRB.CONTINUOUS, name='u3')
     u4 = model.addVars([i for i in N], vtype=GRB.CONTINUOUS, name='u4')
+
+    for i in N:
+        u3[i].LB
     # Objective Function
     model.setObjective(sum(w[i] * (1 - u4[i]) * u3[i] for i in N), GRB.MAXIMIZE)
+    # model.setObjective(sum(math.log(w[i]) + math.log(1 - u4[i]) + math.log(u3[i]) for i in N), GRB.MINIMIZE)
 
     # Constraints
     for j in S:
@@ -362,7 +371,7 @@ def exact(n_customer, beta, lamda, theta):
         model.addConstr(u1[i] * u2[i] == 1.0, name="ConstrU2")
         model.addConstr(u3[i] == 1.0 - (get_u_c(i) * u2[i]), name="ConstrU3")
         e_lambda = math.exp(-LAMBDA)
-        model.addGenConstrExpA(u3[i], u4[i], e_lambda, name="ConstrU4")
+        model.addGenConstrExpA(u1[i], u4[i], e_lambda, name="ConstrU4")
 
     model.Params.TimeLimit = 60*60
     # model.params.FuncPieces = 1000
@@ -488,7 +497,7 @@ if __name__ == "__main__":
         return  (obj_exact - obj_appr) / obj_exact
 
     result_set = []
-    for i in range(40, 45):
+    for i in range(40, 41):
         alpha = 0.005
         beta = 1
         lamda = 1
