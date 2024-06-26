@@ -7,7 +7,7 @@ import itertools
 
 def cfldp(n_customer, alpha, beta, lamda, theta):
     random.seed(123)
-    MAP_SIZE = 1000
+    MAP_SIZE = 100
     CUSTOMERS = n_customer
     ATTRACTIVENESS_ATTRIBUTES = 2
 
@@ -82,7 +82,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
         return 1 + 1 * sum(R.get(scenario))
 
     def get_utility(customer, facility, scenario):
-        return get_attractiveness(scenario) * (distances.get((customer, facility)) + 1) ** (-BETA)
+        return get_attractiveness(scenario) * ((distances.get((customer, facility)) + 1) ** (-BETA))
 
     def get_g(utility):
         if utility == 0:
@@ -97,7 +97,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     def get_u_c(customer):
         utility_sum = 0
         for c in C:
-            utility_sum += c_attractiveness.get(c) * (distances.get((customer, c)) + 1) ** (-BETA)
+            utility_sum += c_attractiveness.get(c) * ((distances.get((customer, c)) + 1) ** (-BETA))
         return utility_sum
 
     def get_max_u_s(customer):
@@ -203,8 +203,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
             a_dict.update({(customer, l): c_dict.get((customer, l + 1)) - c_dict.get((customer, l))})
 
     print(l_dict)
-    print(c_dict)
-    print([(i, get_interval_limit(i)) for i in N])
+    print(b_dict)
 
     ### Model
     model = gp.Model()
@@ -216,7 +215,6 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
 
     # Objective Function
     model.setObjective(sum(sum(w[i] * a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
-    # model.setObjective(sum(w[i] * sum(a_dict.get((i, l)) * b_dict.get((i, l)) * y[i, l] for l in range(1, l_dict.get(i) + 1)) for i in N), GRB.MAXIMIZE)
 
     # Constraints
     for i in N:
@@ -225,7 +223,11 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 2")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 7, name="Constraints 3")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 5, name="Constraints 3")
+
+    for i in N:
+        for l in range(1, l_dict.get(i) - 1):
+            model.addConstr(y[i, l] >= y[i, l + 1], name="Constrt test")
 
     model.Params.TimeLimit = 60*60
     model.update()
@@ -235,8 +237,9 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     x_result = pd.DataFrame(x.keys(), columns=["j", "r"])
     x_result["value"] = model.getAttr("X", x).values()
     x_result["cost"] = [get_cost(r) for r in x_result["r"]]
-    x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
+    x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
+
 
     print(distances)
     y_result = pd.DataFrame(y.keys(), columns=["i", "l"])
@@ -246,7 +249,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     return x_result
 def exact(n_customer, beta, lamda, theta):
     random.seed(123)
-    MAP_SIZE = 1000
+    MAP_SIZE = 100
     CUSTOMERS = n_customer
     ATTRACTIVENESS_ATTRIBUTES = 2
 
@@ -320,12 +323,12 @@ def exact(n_customer, beta, lamda, theta):
         return 1 + 1 * sum(R.get(scenario))
 
     def get_utility(customer, facility, scenario):
-        return get_attractiveness(scenario) * (distances.get((customer, facility)) + 1) ** (-BETA)
+        return get_attractiveness(scenario) * ((distances.get((customer, facility)) + 1) ** (-BETA))
 
     def get_u_c(customer):
         utility_sum = 0
         for c in C:
-            utility_sum += c_attractiveness.get(c) * (distances.get((customer, c)) + 1) ** (-BETA)
+            utility_sum += c_attractiveness.get(c) * ((distances.get((customer, c)) + 1) ** (-BETA))
         return utility_sum
 
     def get_g(utility):
@@ -352,15 +355,17 @@ def exact(n_customer, beta, lamda, theta):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 1")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 7, name="Constraints 2")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 5, name="Constraints 2")
+
     for i in N:
         model.addConstr(u1[i] == get_u_c(i) + sum(x[j, r] * get_utility(i, j, r) for j in S for r in R.keys()), name="ConstrU1")
         model.addConstr(u1[i] * u2[i] == 1.0, name="ConstrU2")
-        model.addConstr(u3[i] == 1 - (get_u_c(i) * u2[i]), name="ConstrU3")
+        model.addConstr(u3[i] == 1.0 - (get_u_c(i) * u2[i]), name="ConstrU3")
         e_lambda = math.exp(-LAMBDA)
         model.addGenConstrExpA(u3[i], u4[i], e_lambda, name="ConstrU4")
 
     model.Params.TimeLimit = 60*60
+    # model.params.FuncPieces = 1000
     model.update()
     model.optimize()
 
@@ -376,7 +381,7 @@ def exact(n_customer, beta, lamda, theta):
 if __name__ == "__main__":
     def result(n_customer, alpha, beta, lamda, theta, result_approximation, result_exact):
         random.seed(123)
-        MAP_SIZE = 1000
+        MAP_SIZE = 100
         CUSTOMERS = n_customer
         ATTRACTIVENESS_ATTRIBUTES = 2
 
@@ -446,7 +451,7 @@ if __name__ == "__main__":
             return 1 + 1 * sum(R.get(scenario))
 
         def get_utility(customer, facility, scenario):
-            return get_attractiveness(scenario) * (distances.get((customer, facility)) + 1) ** (-BETA)
+            return get_attractiveness(scenario) * ((distances.get((customer, facility)) + 1) ** (-BETA))
 
         def get_g(utility):
             if utility == 0:
@@ -456,7 +461,7 @@ if __name__ == "__main__":
         def get_u_c(customer):
             utility_sum = 0
             for c in C:
-                utility_sum += c_attractiveness.get(c) * (distances.get((customer, c)) + 1) ** (-BETA)
+                utility_sum += c_attractiveness.get(c) * ((distances.get((customer, c)) + 1) ** (-BETA))
             return utility_sum
 
         def get_omega(utility, customer):
@@ -483,12 +488,13 @@ if __name__ == "__main__":
         return  (obj_exact - obj_appr) / obj_exact
 
     result_set = []
-    for i in range(30, 50):
-        alpha = 0.01
+    for i in range(40, 45):
+        alpha = 0.005
         beta = 1
         lamda = 1
-        theta = 0.8
+        theta = 1
         result_approximation = cfldp(i, alpha, beta, lamda, theta)
         result_exact = exact(i, beta, lamda, theta)
         result_set.append(result(i, alpha, beta, lamda, theta, result_approximation, result_exact))
     print(result_set)
+    print("End")
