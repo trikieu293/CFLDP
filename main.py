@@ -35,7 +35,6 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
             x = random.randint(1, MAP_SIZE - 1)
             y = random.randint(1, MAP_SIZE - 1)
         locations.update({i: (x, y)})
-    print("Locations: "+str(locations))
 
     # calculating distances between nodes
     distances = {}
@@ -276,7 +275,6 @@ def exact(n_customer, beta, lamda, theta):
             x = random.randint(1, MAP_SIZE - 1)
             y = random.randint(1, MAP_SIZE - 1)
         locations.update({i: (x, y)})
-    print("Locations: "+str(locations))
 
     # calculating distances between nodes
     distances = {}
@@ -497,9 +495,9 @@ if __name__ == "__main__":
         return  (obj_exact - obj_appr) / obj_exact
 
     result_set = []
-    for i in range(50, 60):
+    for i in range(50, 81, 2):
         alpha = 0.05
-        beta = 3
+        beta = 2
         lamda = 1
         theta = 1
         result_approximation = cfldp(i, alpha, beta, lamda, theta)
