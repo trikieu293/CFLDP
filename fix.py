@@ -413,7 +413,7 @@ def exact(n_customer, beta, lamda, theta):
         model.addGenConstrExpA(u1[i], u4[i], e_lambda, name="ConstrU4")
 
     model.Params.TimeLimit = 60*60
-    # model.params.FuncPieces = 1000
+    model.params.NonConvex = 2
     model.update()
     model.optimize()
 
@@ -428,7 +428,7 @@ def exact(n_customer, beta, lamda, theta):
 
 if __name__ == "__main__":
     result_set = []
-    for i in range(50, 51):
+    for i in range(20, 30):
         alpha = 0.05
         beta = 1
         lamda = 1
