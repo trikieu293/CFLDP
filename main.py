@@ -237,7 +237,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta, seed):
     y_result = pd.DataFrame(y.keys(), columns=["i", "l"])
     y_result["value"] = model.getAttr("X", y).values()
 
-    return [x_result, time_tla, model.Runtime]
+    return [x_result, time_tla, round(model.Runtime, 2)]
 
 
 def exact(n_customer, beta, lamda, theta,seed):
@@ -375,7 +375,7 @@ def exact(n_customer, beta, lamda, theta,seed):
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
-    return [x_result, model.Runtime]
+    return [x_result, round(model.Runtime, 2), len(x_result.index)]
 
 if __name__ == "__main__":
     def result(n_customer, alpha, beta, lamda, theta, result_approximation, result_exact, seed):
@@ -486,14 +486,19 @@ if __name__ == "__main__":
         print("Relative Error: " + str((obj_exact - obj_appr) / obj_exact) + "  vs. Alpha: " + str(alpha))
         return  (obj_exact - obj_appr) / obj_exact
 
-    result_set = []
-    for i in range(100, 110):
+
+    result_df = pd.DataFrame(columns=["N","Seed","Epsilon","Lambda","Beta","Theta","Relative Error","TLA.Time","IP.Time", "Total.TLA.Time","Exact.Time","Num.Facilities"])
+    for i in range(30, 33):
         alpha = 0.05
         beta = 1
         lamda = 1
         theta = 1
         seed = 123
-        result_approximation = cfldp(i, alpha, beta, lamda, theta, seed)
+        result_approx = cfldp(i, alpha, beta, lamda, theta, seed)
         result_exact = exact(i, beta, lamda, theta, seed)
-        result_set.append(result(i, alpha, beta, lamda, theta, result_approximation, result_exact, seed))
-    print(result_set)
+        rel_err = result(i, alpha, beta, lamda, theta, result_approx, result_exact, seed)
+        
+        result_df.loc[len(result_df.index)] = [i, seed, alpha, lamda, beta, theta, rel_err, result_approx[1], result_approx[2], result_approx[1] + result_approx[2], result_exact[1], result_exact[2]]
+        
+    print(result_df)
+    result_df.to_csv("result.csv", encoding='utf-8')
