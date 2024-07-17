@@ -487,21 +487,21 @@ if __name__ == "__main__":
         return  (obj_exact - obj_appr) / obj_exact
 
 
-    result_df = pd.DataFrame(columns=["N","Seed","Epsilon","Lambda","Beta","Theta","Relative Error","TLA.Time","IP.Time", "Total.TLA.Time","Exact.Time","Num.Facilities"])
-    for i in [80,90,100,120,140,160,200,250,300,350,400,450,500,550,600,700,800]:
-        for e in [0.05, 0.01]:
-            for s in range(100,105):
-                alpha = e
-                beta = 1
-                lamda = 1
-                theta = 1
-                seed = s
-                result_approx = cfldp(i, alpha, beta, lamda, theta, seed)
-                result_exact = exact(i, beta, lamda, theta, seed)
-                rel_err = result(i, alpha, beta, lamda, theta, result_approx, result_exact, seed)
-                total_time_TLA = round(result_approx[1] + result_approx[2], 2)
-                
-                result_df.loc[len(result_df.index)] = [i, seed, alpha, lamda, beta, theta, rel_err, result_approx[1], result_approx[2], total_time_TLA, result_exact[1], result_exact[2]]
+    result_df = pd.DataFrame(columns=["N","Seed","Lambda","Beta","Theta","Relative Error 5%","TLA.Time 5%","IP.Time 5%", "Total.TLA.Time 5%","Relative Error 1%","TLA.Time 1%","IP.Time 1%", "Total.TLA.Time 1%","Exact.Time","Num.Facilities"])
+    for i in [80,90,100,110,120,130,140,160,180,200,250,300,350,400,450,500,550,600]:
+        for s in range(100,105):
+            beta = 1
+            lamda = 1
+            theta = 1
+            seed = s
+            result_approx_5 = cfldp(i, 0.05, beta, lamda, theta, seed)
+            result_approx_1 = cfldp(i, 0.01, beta, lamda, theta, seed)
+            result_exact = exact(i, beta, lamda, theta, seed)
+            rel_err_5 = result(i, 0.05, beta, lamda, theta, result_approx_5, result_exact, seed)
+            rel_err_1 = result(i, 0.01, beta, lamda, theta, result_approx_1, result_exact, seed)
+            total_time_TLA_5 = round(result_approx_5[1] + result_approx_5[2], 2)
+            total_time_TLA_1 = round(result_approx_1[1] + result_approx_1[2], 2)    
+            result_df.loc[len(result_df.index)] = [i,seed,lamda,beta,theta,rel_err_5,result_approx_5[1],result_approx_5[2],total_time_TLA_5,rel_err_1,result_approx_1[1],result_approx_1[2],total_time_TLA_1,result_exact[1],result_exact[2]]
         
     print(result_df)
     result_df.to_csv("result.csv", encoding='utf-8')
