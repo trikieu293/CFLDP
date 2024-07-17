@@ -4,9 +4,11 @@ import pandas as pd
 import random
 import math
 import itertools
+import time
 
-def cfldp(n_customer, alpha, beta, lamda, theta):
-    random.seed(123)
+
+def cfldp(n_customer, alpha, beta, lamda, theta, seed):
+    random.seed(seed)
     MAP_SIZE = 100
     CUSTOMERS = n_customer
     ATTRACTIVENESS_ATTRIBUTES = 2
@@ -145,6 +147,8 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     a_dict = {}
     b_dict = {}
     c_dict = {}
+    
+    start_time_tla = time.time()
     for customer in N:
         def tla():
             # Step 1
@@ -157,11 +161,9 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
 
             # Step 2
             while get_l(phi_bar, customer, c_t) >= get_omega(phi_bar, customer) * (1.0 + ALPHA):
-                print("Customer " + str(customer) + " - Step 2")
                 root = bisect(diff_function_25, c, phi_bar, customer, c_t)
                 c_dict.update({(customer, l + 1): root})
-                if root == phi_bar: # Caution
-                    print("root = phi_bar" + " - Customer" + str(customer))
+                if root == phi_bar:
                     l_dict.update({customer: l})
                     break
                 else:
@@ -170,26 +172,21 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
                     if get_omega(phi_bar, customer) >= (get_omega_derivative(phi_bar, customer) * (phi_bar - c) + get_omega(c, customer)):  # (23) hold -> Step 3b
                         c_t = bisect(diff_function_24, c, phi_bar, customer, c)
                         b_dict.update({(customer, l): get_omega_derivative(c_t, customer)})
-                        print("Customer " + str(customer) + " - Step 3b; c_t= " + str(c_t))
                     else: # (23) not hold -> Step 3a
-                        print("Customer " + str(customer) + " - Step 3a; c_t= " + str(c_t))
                         l_dict.update({customer: l})
-                        c_dict.update({(customer, l + 1): phi_bar}) # Check again
+                        c_dict.update({(customer, l + 1): phi_bar})
                         if get_omega(c_dict.get((customer, l)), customer) * (1.0 + ALPHA) <= get_omega(phi_bar, customer):
-                            print("27 hold")
                             value = (get_omega(phi_bar, customer) - get_omega(c, customer) * (1.0 + ALPHA)) / (phi_bar - c)
                             b_dict.update({(customer, l): value})
                         else:
                             b_dict.update({(customer, l): 0})
                             break
                     if c_t == phi_bar: # Step 4
-                        print("Customer " + str(customer) + " - c_t = phibar - Step 4:", str(c_t), " == ", str(phi_bar))
                         c_dict.update({(customer, l + 1): c_t})
                         l_dict.update({customer: l})
                         break
 
             if get_l(phi_bar, customer, c_t) < get_omega(phi_bar, customer) * (1 + ALPHA):
-                print("Customer " + str(customer) + " - Condition 26 failed")
                 c_dict.update({(customer, l + 1): phi_bar})
                 l_dict.update({customer: l})
 
@@ -199,10 +196,9 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
         check = l_dict.get(customer)
         for l in range(1, l_dict.get(customer) + 1):
             a_dict.update({(customer, l): c_dict.get((customer, l + 1)) - c_dict.get((customer, l))})
-
-    print(l_dict)
-    print(b_dict)
-
+    end_time_tla = time.time()
+    time_tla = round(end_time_tla - start_time_tla, 2)
+    
     ### Model
     model = gp.Model()
     x_index = [(j, r) for j in S for r in R.keys()]
@@ -223,9 +219,9 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
 
     model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 5, name="Constraints 3")
 
-    for i in N:
-        for l in range(1, l_dict.get(i) - 1):
-            model.addConstr(y[i, l] >= y[i, l + 1], name="Constrt test")
+    # for i in N:
+    #     for l in range(1, l_dict.get(i) - 1):
+    #         model.addConstr(y[i, l] >= y[i, l + 1], name="Constrt test")
 
     model.Params.TimeLimit = 60*60
     model.update()
@@ -238,15 +234,14 @@ def cfldp(n_customer, alpha, beta, lamda, theta):
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
 
-
-    print(distances)
     y_result = pd.DataFrame(y.keys(), columns=["i", "l"])
     y_result["value"] = model.getAttr("X", y).values()
 
-    # return [x_result, y_result, a_dict, b_dict, c_dict, l_dict]
-    return x_result
-def exact(n_customer, beta, lamda, theta):
-    random.seed(123)
+    return [x_result, time_tla, model.Runtime]
+
+
+def exact(n_customer, beta, lamda, theta,seed):
+    random.seed(seed)
     MAP_SIZE = 100
     CUSTOMERS = n_customer
     ATTRACTIVENESS_ATTRIBUTES = 2
@@ -337,8 +332,6 @@ def exact(n_customer, beta, lamda, theta):
         if utility == 0:
             return 0
         return 1 - math.exp(-LAMBDA * utility)
-    def get_omega(utility, customer):
-        return get_g(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer))))
 
     ### Model
     model = gp.Model()
@@ -371,7 +364,6 @@ def exact(n_customer, beta, lamda, theta):
         model.addGenConstrExpA(u1[i], u4[i], e_lambda, name="ConstrU4")
 
     model.Params.TimeLimit = 60*60
-    # model.params.FuncPieces = 1000
     model.update()
     model.optimize()
 
@@ -382,11 +374,11 @@ def exact(n_customer, beta, lamda, theta):
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
-    return x_result
+    return [x_result, model.Runtime]
 
 if __name__ == "__main__":
-    def result(n_customer, alpha, beta, lamda, theta, result_approximation, result_exact):
-        random.seed(123)
+    def result(n_customer, alpha, beta, lamda, theta, result_approximation, result_exact, seed):
+        random.seed(seed)
         MAP_SIZE = 100
         CUSTOMERS = n_customer
         ATTRACTIVENESS_ATTRIBUTES = 2
@@ -473,8 +465,8 @@ if __name__ == "__main__":
         def get_omega(utility, customer):
             return get_g(utility + get_u_c(customer)) * (1 - (get_u_c(customer) / (utility + get_u_c(customer))))
 
-        x_appr = result_approximation
-        x_exact = result_exact
+        x_appr = result_approximation[0]
+        x_exact = result_exact[0]
 
         obj_appr = 0.0
         obj_exact = 0.0
@@ -494,12 +486,13 @@ if __name__ == "__main__":
         return  (obj_exact - obj_appr) / obj_exact
 
     result_set = []
-    for i in range(100, 110):
+    for i in range(30, 31):
         alpha = 0.05
-        beta = 2
+        beta = 1
         lamda = 1
         theta = 1
-        result_approximation = cfldp(i, alpha, beta, lamda, theta)
-        result_exact = exact(i, beta, lamda, theta)
-        result_set.append(result(i, alpha, beta, lamda, theta, result_approximation, result_exact))
+        seed = 123
+        result_approximation = cfldp(i, alpha, beta, lamda, theta, seed)
+        result_exact = exact(i, beta, lamda, theta, seed)
+        result_set.append(result(i, alpha, beta, lamda, theta, result_approximation, result_exact, seed))
     print(result_set)
