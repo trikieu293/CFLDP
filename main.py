@@ -217,7 +217,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta, seed):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 2")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 5, name="Constraints 3")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 9, name="Constraints 3")
 
     # for i in N:
     #     for l in range(1, l_dict.get(i) - 1):
@@ -354,7 +354,7 @@ def exact(n_customer, beta, lamda, theta,seed):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 1")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 5, name="Constraints 2")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 9, name="Constraints 2")
 
     for i in N:
         model.addConstr(u1[i] == get_u_c(i) + sum(x[j, r] * get_utility(i, j, r) for j in S for r in R.keys()), name="ConstrU1")
@@ -364,7 +364,7 @@ def exact(n_customer, beta, lamda, theta,seed):
         model.addGenConstrExpA(u1[i], u4[i], e_lambda, name="ConstrU4")
 
     model.Params.TimeLimit = 60*60
-    model.params.NonConvex = 2
+    # model.params.NonConvex = 2
     model.update()
     model.optimize()
 
@@ -488,17 +488,20 @@ if __name__ == "__main__":
 
 
     result_df = pd.DataFrame(columns=["N","Seed","Epsilon","Lambda","Beta","Theta","Relative Error","TLA.Time","IP.Time", "Total.TLA.Time","Exact.Time","Num.Facilities"])
-    for i in range(30, 33):
-        alpha = 0.05
-        beta = 1
-        lamda = 1
-        theta = 1
-        seed = 123
-        result_approx = cfldp(i, alpha, beta, lamda, theta, seed)
-        result_exact = exact(i, beta, lamda, theta, seed)
-        rel_err = result(i, alpha, beta, lamda, theta, result_approx, result_exact, seed)
-        
-        result_df.loc[len(result_df.index)] = [i, seed, alpha, lamda, beta, theta, rel_err, result_approx[1], result_approx[2], result_approx[1] + result_approx[2], result_exact[1], result_exact[2]]
+    for i in [80,90,100,120,140,160,200,250,300,350,400,450,500,550,600,700,800]:
+        for e in [0.05, 0.01]:
+            for s in range(100,105):
+                alpha = e
+                beta = 1
+                lamda = 1
+                theta = 1
+                seed = s
+                result_approx = cfldp(i, alpha, beta, lamda, theta, seed)
+                result_exact = exact(i, beta, lamda, theta, seed)
+                rel_err = result(i, alpha, beta, lamda, theta, result_approx, result_exact, seed)
+                total_time_TLA = round(result_approx[1] + result_approx[2], 2)
+                
+                result_df.loc[len(result_df.index)] = [i, seed, alpha, lamda, beta, theta, rel_err, result_approx[1], result_approx[2], total_time_TLA, result_exact[1], result_exact[2]]
         
     print(result_df)
     result_df.to_csv("result.csv", encoding='utf-8')
