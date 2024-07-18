@@ -152,7 +152,7 @@ def tla(n_customer, alpha, beta, lamda, theta, seed):
                 ax.annotate(str(node), xy=(x_temp, y_temp), color="white", fontsize=w.get(node),
                             horizontalalignment='center', verticalalignment='center')
             if node in x_result["j"].unique():
-                ax.scatter(x_temp, y_temp, s=3 ** x_result.loc[x_result.j == node, "attractiveness"].values[0],
+                ax.scatter(x_temp, y_temp, s=2.5 ** (x_result.loc[x_result.j == node, "attractiveness"].values[0] + 3),
                         c="forestgreen", alpha=0.7)
                 ax.annotate(str(node), xy=(x_temp, y_temp), color="white",
                             fontsize=x_result.loc[x_result.j == node, "attractiveness"].values[0],
@@ -161,6 +161,7 @@ def tla(n_customer, alpha, beta, lamda, theta, seed):
                 ax.scatter(x_temp, y_temp, s=3 ** c_attractiveness.get(node), c="red", alpha=0.7)
                 ax.annotate(str(node), xy=(x_temp, y_temp), color="white", fontsize=c_attractiveness.get(node),
                             horizontalalignment='center', verticalalignment='center')
+        plt.figure(dpi=600)
         plt.show()
     
     ### The TLA procedure
@@ -238,7 +239,7 @@ def tla(n_customer, alpha, beta, lamda, theta, seed):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 2")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 9, name="Constraints 3")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 5, name="Constraints 3")
 
     # for i in N:
     #     for l in range(1, l_dict.get(i) - 1):
@@ -262,4 +263,4 @@ def tla(n_customer, alpha, beta, lamda, theta, seed):
     
     return [x_result, time_tla, round(model.Runtime, 2)]
 
-print(tla(100, 0.05, 1, 1, 1, 103093))
+print(tla(50, 0.05, 1, 1, 1, 103093))
