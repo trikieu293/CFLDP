@@ -7,7 +7,7 @@ import itertools
 import time
 
 
-def cfldp(n_customer, alpha, beta, lamda, theta, seed):
+def cfldp(n_customer, epsilon, beta, lamda, theta, seed):
     random.seed(seed)
     MAP_SIZE = 100
     CUSTOMERS = n_customer
@@ -17,7 +17,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta, seed):
     EXISTING_COMPETITIVE_FACILITIES = POTENTIAL_LOCATION // 3
     AVAILABLE_LOCATIONS = POTENTIAL_LOCATION - EXISTING_COMPETITIVE_FACILITIES
 
-    ALPHA = alpha            # approximation level
+    EPSILON = epsilon            # approximation level
     BETA = beta              # the distance sensitivity parameter
     LAMBDA = lamda           # the elasticity parameter
     THETA = theta            # sensitivity parameter of the utility function
@@ -123,7 +123,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta, seed):
         return a * b > 0
 
     def diff_function_25(utility, customer, point):
-        return get_l(utility, customer, point) - get_omega(utility, customer) * (1.0 + ALPHA)
+        return get_l(utility, customer, point) - get_omega(utility, customer) * (1.0 + EPSILON)
 
 
     def diff_function_24(utility, customer, c):
@@ -160,7 +160,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta, seed):
             phi_bar = get_interval_limit(customer)
 
             # Step 2
-            while get_l(phi_bar, customer, c_t) >= get_omega(phi_bar, customer) * (1.0 + ALPHA):
+            while get_l(phi_bar, customer, c_t) >= get_omega(phi_bar, customer) * (1.0 + EPSILON):
                 root = bisect(diff_function_25, c, phi_bar, customer, c_t)
                 c_dict.update({(customer, l + 1): root})
                 if root == phi_bar:
@@ -175,8 +175,8 @@ def cfldp(n_customer, alpha, beta, lamda, theta, seed):
                     else: # (23) not hold -> Step 3a
                         l_dict.update({customer: l})
                         c_dict.update({(customer, l + 1): phi_bar})
-                        if get_omega(c_dict.get((customer, l)), customer) * (1.0 + ALPHA) <= get_omega(phi_bar, customer):
-                            value = (get_omega(phi_bar, customer) - get_omega(c, customer) * (1.0 + ALPHA)) / (phi_bar - c)
+                        if get_omega(c_dict.get((customer, l)), customer) * (1.0 + EPSILON) <= get_omega(phi_bar, customer):
+                            value = (get_omega(phi_bar, customer) - get_omega(c, customer) * (1.0 + EPSILON)) / (phi_bar - c)
                             b_dict.update({(customer, l): value})
                         else:
                             b_dict.update({(customer, l): 0})
@@ -186,7 +186,7 @@ def cfldp(n_customer, alpha, beta, lamda, theta, seed):
                         l_dict.update({customer: l})
                         break
 
-            if get_l(phi_bar, customer, c_t) < get_omega(phi_bar, customer) * (1 + ALPHA):
+            if get_l(phi_bar, customer, c_t) < get_omega(phi_bar, customer) * (1 + EPSILON):
                 c_dict.update({(customer, l + 1): phi_bar})
                 l_dict.update({customer: l})
 
@@ -378,7 +378,7 @@ def exact(n_customer, beta, lamda, theta,seed):
     return [x_result, round(model.Runtime, 2), len(x_result.index)]
 
 if __name__ == "__main__":
-    def result(n_customer, alpha, beta, lamda, theta, result_approximation, result_exact, seed):
+    def result(n_customer, epsilon, beta, lamda, theta, result_approximation, result_exact, seed):
         random.seed(seed)
         MAP_SIZE = 100
         CUSTOMERS = n_customer
@@ -388,7 +388,6 @@ if __name__ == "__main__":
         EXISTING_COMPETITIVE_FACILITIES = POTENTIAL_LOCATION // 3
         AVAILABLE_LOCATIONS = POTENTIAL_LOCATION - EXISTING_COMPETITIVE_FACILITIES
 
-        ALPHA = alpha  # approximation level
         BETA = beta  # the distance sensitivity parameter
         LAMBDA = lamda  # the elasticity parameter
         THETA = theta  # sensitivity parameter of the utility function
@@ -483,8 +482,8 @@ if __name__ == "__main__":
         print(result_approximation)
         print(result_exact)
         print("Obj. Exact: " + str(obj_exact) + " -- " + "Obj. Appr: " + str(obj_appr))
-        print("Relative Error: " + str((obj_exact - obj_appr) / obj_exact) + "  vs. Alpha: " + str(alpha))
-        return  (obj_exact - obj_appr) / obj_exact
+        print("Relative Error: " + str((obj_exact - obj_appr) / obj_exact) + "  vs. Alpha: " + str(epsilon))
+        return (obj_exact - obj_appr) / obj_exact
 
 
     result_df = pd.DataFrame(columns=["N","Seed","Lambda","Beta","Theta","Relative Error 5%","TLA.Time 5%","IP.Time 5%", "Total.TLA.Time 5%","Relative Error 1%","TLA.Time 1%","IP.Time 1%", "Total.TLA.Time 1%","Exact.Time","Num.Facilities"])
