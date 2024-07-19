@@ -161,7 +161,6 @@ def tla(n_customer, alpha, beta, lamda, theta, seed):
                 ax.scatter(x_temp, y_temp, s=3 ** c_attractiveness.get(node), c="red", alpha=0.7)
                 ax.annotate(str(node), xy=(x_temp, y_temp), color="white", fontsize=c_attractiveness.get(node),
                             horizontalalignment='center', verticalalignment='center')
-        plt.figure(dpi=600)
         plt.show()
     
     ### The TLA procedure
@@ -263,4 +262,4 @@ def tla(n_customer, alpha, beta, lamda, theta, seed):
     
     return [x_result, time_tla, round(model.Runtime, 2)]
 
-print(tla(50, 0.05, 1, 1, 1, 103093))
+print(tla(50, 0.05, 100, 1, 1, 103093))

@@ -4,8 +4,9 @@ import pandas as pd
 import random
 import math
 import itertools
+import matplotlib.pyplot as plt
 
-def exact(n_customer, beta, lamda, theta,seed):
+def exact(n_customer, beta, lamda, theta, seed):
     random.seed(seed)
     MAP_SIZE = 100
     CUSTOMERS = n_customer
@@ -98,6 +99,27 @@ def exact(n_customer, beta, lamda, theta,seed):
             return 0
         return 1 - math.exp(-LAMBDA * utility)
 
+    def plot_map():
+        fig, ax = plt.subplots()
+        customer_nodes = [node for node in N if node not in P]
+        for node in N:
+            x_temp, y_temp = locations.get(node)
+            if node in customer_nodes:
+                ax.scatter(x_temp, y_temp, s=3 ** w.get(node), c="gray", alpha=0.7)
+                ax.annotate(str(node), xy=(x_temp, y_temp), color="white", fontsize=w.get(node),
+                            horizontalalignment='center', verticalalignment='center')
+            if node in x_result["j"].unique():
+                ax.scatter(x_temp, y_temp, s=2.5 ** (x_result.loc[x_result.j == node, "attractiveness"].values[0] + 3),
+                        c="forestgreen", alpha=0.7)
+                ax.annotate(str(node), xy=(x_temp, y_temp), color="white",
+                            fontsize=x_result.loc[x_result.j == node, "attractiveness"].values[0],
+                            horizontalalignment='center', verticalalignment='center')
+            if node in C:
+                ax.scatter(x_temp, y_temp, s=3 ** c_attractiveness.get(node), c="red", alpha=0.7)
+                ax.annotate(str(node), xy=(x_temp, y_temp), color="white", fontsize=c_attractiveness.get(node),
+                            horizontalalignment='center', verticalalignment='center')
+        plt.show()
+    
     ### Model
     model = gp.Model()
     x_index = [(j, r) for j in S for r in R.keys()]
@@ -119,7 +141,7 @@ def exact(n_customer, beta, lamda, theta,seed):
     for j in S:
         model.addConstr(sum(x[j, r] for r in R.keys()) <= 1, name="Constraints 1")
 
-    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 9, name="Constraints 2")
+    model.addConstr(sum(sum(get_cost(r) * x[j, r] for r in R.keys()) for j in S) <= 5, name="Constraints 2")
 
     for i in N:
         model.addConstr(u1[i] == get_u_c(i) + sum(x[j, r] * get_utility(i, j, r) for j in S for r in R.keys()), name="ConstrU1")
@@ -140,4 +162,8 @@ def exact(n_customer, beta, lamda, theta,seed):
     x_result.drop(x_result[x_result.value < 0.9].index, inplace=True)
     x_result["attractiveness"] = [get_attractiveness(r) for r in x_result["r"]]
 
+    plot_map()
+        
     return [x_result, round(model.Runtime, 2), len(x_result.index)]
+
+print(exact(50, 1, 0.0000001, 1, 103093))
