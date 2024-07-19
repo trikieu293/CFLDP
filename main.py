@@ -489,7 +489,7 @@ if __name__ == "__main__":
     result_df = pd.DataFrame(columns=["N","Seed","Lambda","Beta","Theta","Relative Error 5%","TLA.Time 5%","IP.Time 5%", "Total.TLA.Time 5%","Relative Error 1%","TLA.Time 1%","IP.Time 1%", "Total.TLA.Time 1%","Exact.Time","Num.Facilities"])
     # for i in [80,90,100,110,120,130,140,160,180,200,250,300,350,400,450,500,550,600]:
     for i in [80,90,100,110,120,130,140,160,180,200,250,300,350,400]:
-        for s in range(100,105):
+        for s in range(100, 105):
             beta = 1
             lamda = 1
             theta = 1
