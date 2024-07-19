@@ -7,7 +7,7 @@ import itertools
 import time
 
 
-def cfldp(n_customer, epsilon, beta, lamda, theta, seed):
+def tla(n_customer, epsilon, beta, lamda, theta, seed):
     random.seed(seed)
     MAP_SIZE = 100
     CUSTOMERS = n_customer
@@ -494,8 +494,8 @@ if __name__ == "__main__":
             lamda = 1
             theta = 1
             seed = s
-            result_approx_5 = cfldp(i, 0.05, beta, lamda, theta, seed)
-            result_approx_1 = cfldp(i, 0.01, beta, lamda, theta, seed)
+            result_approx_5 = tla(i, 0.05, beta, lamda, theta, seed)
+            result_approx_1 = tla(i, 0.01, beta, lamda, theta, seed)
             result_exact = exact(i, beta, lamda, theta, seed)
             rel_err_5 = result(i, 0.05, beta, lamda, theta, result_approx_5, result_exact, seed)
             rel_err_1 = result(i, 0.01, beta, lamda, theta, result_approx_1, result_exact, seed)
